@@ -104,13 +104,20 @@ def getParams():
 ###############################################
 # Funkce pro praci uvnitr zadane slozky
 ###############################################
-def WorkInDir(path):
+def WorkInDir(path, params):
 	#if path is a file
 	if re.match(r'.*\.c', path) or re.match(r'.*\.h', path):
 		print("Got a file called", path)
 		#ParseFile(path)
 	elif os.path.isdir(path):
 		print("Got a dir called", path)
+		for f in os.listdir(path):
+			if re.match(r'.*\.c', f) or re.match(r'.*\.h', f):
+				print("Got a file called", f)				
+				#ParseFile(os.path.join(path, f))
+			elif os.path.isdir(os.path.join(path,f)):
+				if not params.noSubDir:
+					WorkInDir(os.path.join(path,f), params)		
 	else:
 		return
 			 
@@ -122,11 +129,11 @@ def main():
 	params = parameters()
 	params = getParams()
 	if not (params.k or params.o or params.i or params.w or params.c):
-		prinErrExit(errors.EPAR)
+		printErrExit(errors.EPAR)
 	if re.match(r'.*\.c', params.inputf) or re.match(r'.*\.h', params.inputf):
 		if params.noSubDir:
 			printErrExit(errors.EPAR)
-		
+	
 	print ("Input: " + str(params.inputf))
 	print ("Output: " + str(params.outputf))
 	print ("Help: " + str(params.h))
@@ -137,7 +144,7 @@ def main():
 	print ("C: " + str(params.c))
 	print ("P: " + str(params.p))
 	
-	WorkInDir(params.inputf)
+	WorkInDir(params.inputf, params)
 
 if __name__ == "__main__":
     main()
