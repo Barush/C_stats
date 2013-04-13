@@ -1,4 +1,4 @@
-import getopt, sys, re, os
+import getopt, sys, re, os, string
 
 #trida zastupujici strukturu s parametry
 class parameters:
@@ -13,6 +13,9 @@ class parameters:
         self.w=False
         self.c=False
         self.p=False
+        self.s=False
+        
+        
 #Funkce pro vytvoreni vyctoveho typu
 def enum(**enums):
     return type('Enum', (), enums)
@@ -24,30 +27,30 @@ errors = enum(EPAR=1, EIFILE=2, EOFILE=3, EWRONGIFILE=4, ESPEC=10)
 # Funkce pro tisk helpmsg
 ###############################################
 def usage():
-	print ("\nProgram C Stats v pythonu")
-	print ("Barbora Skrivankova, xskriv01@stud.fit.vutbr.cz")
-	print ("Pouziti: python ./cst.py (-h|--help) --input=fileordir --output=file [--nosubdir] (-k|-o|-i|-w|-c) [-p]\n")
-	print ("\t\t-h, --help: vypise tuto napovedu a skonci program")
-	print ("\t\t--input=fileordir: specifikace vstupniho souboru nebo adresare k analyze")
-	print ("\t\t--output=file: specifikace vystupniho souboru")
-	print ("\t\t--nosubdir: zakazani rekurzivniho prohledavani adresaru")
-	print ("\t\t\t nelze kombinovat s input=file")
-	print ("\t\t-k: probehne vypocet pro klicova slova")
-	print ("\t\t-o: probehne vypocet pro jednoduche operatory")
-	print ("\t\t-i: probehne vypocet pro identifikatory")
-	print ("\t\t-w=pattern: vyhleda textovy retezec pattern a vypise pocet vyskytu")
-	print ("\t\t-c: probehne vypocet pro znaky komentaru")
-	print ("\t\t\tPrave jeden z -k, -o, -i, -w -c musi byt zadan")
-	print ("\t\t-p: ve vypisech zrusi absolutni cesty k souborum")
+	sys.stderr.write ("\nProgram C Stats v pythonu\n")
+	sys.stderr.write ("Barbora Skrivankova, xskriv01@stud.fit.vutbr.cz\n")
+	sys.stderr.write ("Pouziti: python ./cst.py (-h|--help) --input=fileordir --output=file [--nosubdir] (-k|-o|-i|-w|-c) [-p]\n\n")
+	sys.stderr.write ("\t\t-h, --help: vypise tuto napovedu a skonci program\n")
+	sys.stderr.write ("\t\t--input=fileordir: specifikace vstupniho souboru nebo adresare k analyze\n")
+	sys.stderr.write ("\t\t--output=file: specifikace vystupniho souboru\n")
+	sys.stderr.write ("\t\t--nosubdir: zakazani rekurzivniho prohledavani adresaru\n")
+	sys.stderr.write ("\t\t\t nelze kombinovat s input=file\n")
+	sys.stderr.write ("\t\t-k: probehne vypocet pro klicova slova\n")
+	sys.stderr.write ("\t\t-o: probehne vypocet pro jednoduche operatory\n")
+	sys.stderr.write ("\t\t-i: probehne vypocet pro identifikatory\n")
+	sys.stderr.write ("\t\t-w=pattern: vyhleda textovy retezec pattern a vypise pocet vyskytu\n")
+	sys.stderr.write ("\t\t-c: probehne vypocet pro znaky komentaru\n")
+	sys.stderr.write ("\t\t\tPrave jeden z -k, -o, -i, -w -c musi byt zadan\n")
+	sys.stderr.write ("\t\t-p: ve vypisech zrusi absolutni cesty k souborum\n")
 
-ePrints = {errors.EPAR: "Chybne zadane parametry.",
-			errors.EIFILE: "Chyba pri otevreni vstupniho souboru.",
-			errors.EOFILE: "Chyba pri pristupu do vystupniho souboru.",
-			errors.EWRONGIFILE: "Chybny format vystupniho souboru.",
-			errors.ESPEC: "Jina specificka chyba..."}
+ePrints = {errors.EPAR: "Chybne zadane parametry.\n",
+			errors.EIFILE: "Chyba pri otevreni vstupniho souboru.\n",
+			errors.EOFILE: "Chyba pri pristupu do vystupniho souboru.\n",
+			errors.EWRONGIFILE: "Chybny format vystupniho souboru.\n",
+			errors.ESPEC: "Jina specificka chyba...\n"}
 	
 def printErrExit(eCode):
-	print (ePrints[eCode])
+	sys.stderr.write (ePrints[eCode])
 	usage()
 	sys.exit(eCode)
 
@@ -94,34 +97,74 @@ def getParams():
 				printErrExit(errors.EPAR)
 			params.c = True
 		elif p == "-p":
-			if params.h or params.k or params.o or params.i or params.w or params.c:
+			if params.p:
 				printErrExit(errors.EPAR)
 			params.p = True
+		elif p == "-s":
+			if params.h or params.k or params.i or params.w:
+				printErrExit(errors.EPAR)
+			params.s = True			
 		else:
 			printErrExit(errors.EPAR)
 	return params
 
 ###############################################
+# Funkce pro precteni a rozparsovani souboru
+###############################################
+def ParseFile(path, params):
+	f = open(path, "rb")
+	count = 0
+	delete_ind = 0
+	
+	for line in f:
+		if delete_ind:
+			if params.c and params.s:
+				count += len(line.lstrip())
+			else:
+				if re.match(r'.*\\n', str(line)):
+					delete_int = 1
+					continue
+				else:
+					delete_ind = 0
+					continue
+		if re.match(r'#\S+', str(line)):
+			if params.c and params.s:
+				count += len(line.lstrip())
+			else:
+				if re.match(r'.*\\n', str(line)):
+					delete_int = 1
+					continue
+		
+
+###############################################
 # Funkce pro praci uvnitr zadane slozky
 ###############################################
 def WorkInDir(path, params):
+	result = []
 	#if path is a file
 	if re.match(r'.*\.c', path) or re.match(r'.*\.h', path):
-		print("Got a file called", path)
-		#ParseFile(path)
+		if params.p:
+			result.append(os.path.basename(path))
+		else:
+			result.append(path)
+		result.append(ParseFile(path, params))
 	elif os.path.isdir(path):
 		print("Got a dir called", path)
 		for f in os.listdir(path):
 			if re.match(r'.*\.c', f) or re.match(r'.*\.h', f):
+				if params.p:
+					result.append(f)
+				else:
+					result.append(os.path.join(path,f))
 				print("Got a file called", f)				
-				#ParseFile(os.path.join(path, f))
+				result.append(ParseFile(os.path.join(path, f), params))
 			elif os.path.isdir(os.path.join(path,f)):
 				if not params.noSubDir:
 					WorkInDir(os.path.join(path,f), params)		
 	else:
 		return
 			 
-
+	
 ###############################################
 # Main func
 ###############################################
@@ -129,6 +172,8 @@ def main():
 	params = parameters()
 	params = getParams()
 	if not (params.k or params.o or params.i or params.w or params.c):
+		printErrExit(errors.EPAR)
+	if params.s and not (params.o or params.c):
 		printErrExit(errors.EPAR)
 	if re.match(r'.*\.c', params.inputf) or re.match(r'.*\.h', params.inputf):
 		if params.noSubDir:
