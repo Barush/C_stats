@@ -115,25 +115,66 @@ def ParseFile(path, params):
 	f = open(path, "rb")
 	count = 0
 	delete_ind = 0
+	comment_ind = 0
 	
 	for line in f:
+		#print(str(line))
+		#line = str(line).replace("\\r\\n", "\\n")
 		if delete_ind:
 			if params.c and params.s:
-				count += len(line.lstrip())
+				count += len(line)
+			if re.match(r'.*\\\\\\n\'', str(line)):
+				delete_ind = 1
 			else:
-				if re.match(r'.*\\n', str(line)):
-					delete_int = 1
-					continue
-				else:
-					delete_ind = 0
-					continue
-		if re.match(r'#\S+', str(line)):
+				delete_ind = 0
+			continue
+		if comment_ind:
+			end_pos = str(line).find("*/")
+			if end_pos ==-1:
+				print(len(line), ":", line)
+				count += len(line)
+				continue
+			else:
+				print(len(line[:end_pos+2]), ":", line[:end_pos+2])
+				count += len(line[:end_pos +2])
+				comment_ind = 0
+				line = line[end_pos+3:]
+		if re.match(r'b\'#.*', str(line)):
 			if params.c and params.s:
-				count += len(line.lstrip())
+				count += len(line)
+			if re.match(r'.*\\\\\\n\'', str(line)):
+				delete_ind = 16046
+			continue
+		pos = str(line).find('//')
+		if pos != -1:
+			if params.c:
+				print(len(line[pos:]), ":", line[pos:])
+				count += len(line[pos:])
+			if pos == 0:
+				continue
 			else:
-				if re.match(r'.*\\n', str(line)):
-					delete_int = 1
-					continue
+				line = line[:pos]
+		pos = str(line).tostring().find("/*")
+		end_pos = str(line).find("*/")
+		if pos != -1:
+			if params.c:					
+				if end_pos == -1:
+					print(pos)
+					print(len(line[0:]))
+					print(len(line[pos:]), ":", line[pos:])
+					count += len(line[pos:])
+					line = line[:pos]
+					comment_ind = 1
+				else:
+					print(len(line), ":", line)
+					count += len(line[pos:end_pos+2])
+					line = line[:pos] + line[end_pos+2:]
+					
+			
+				
+		
+	print ("Pocet: ", count)
+	return count
 		
 
 ###############################################
@@ -178,16 +219,6 @@ def main():
 	if re.match(r'.*\.c', params.inputf) or re.match(r'.*\.h', params.inputf):
 		if params.noSubDir:
 			printErrExit(errors.EPAR)
-	
-	print ("Input: " + str(params.inputf))
-	print ("Output: " + str(params.outputf))
-	print ("Help: " + str(params.h))
-	print ("K: " + str(params.k))
-	print ("O: " + str(params.o))
-	print ("I: " + str(params.i))
-	print ("W: " + str(params.w))
-	print ("C: " + str(params.c))
-	print ("P: " + str(params.p))
 	
 	WorkInDir(params.inputf, params)
 
