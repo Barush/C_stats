@@ -107,73 +107,106 @@ def getParams():
 		else:
 			printErrExit(errors.EPAR)
 	return params
+	
+###############################################
+# Funkce porovnavajici analyzovany retezec s klicovymi slovy jazyka C
+###############################################
+def FindKeyword(word):
+	keywords = ("auto", "break", "case", "char", "const", "continue", "default",
+	"do", "double", "else", "enum", "extern", "float", "for", "goto", "if", "int", 
+	"long", "register", "return", "short", "signed", "sizeof", "static", "struct",
+	"switch", "typedef", "union", "unsigned", "void", "volatile", "while")
+	
+	if word in keywords:
+		return 1
+	else:
+		return 0
+
+###############################################
+# Funkce pro precteni a rozparsovani souboru
+###############################################
+def FSMParsing(content, params):
+	count = 0
+	
+	#TAHLE FUNKCE BUDE VYPADAT UPLNE JINAK
+	#	- bude to matka vsech funkci konecneho automatu, do ktere se bude vracet vysledek 
+	#	  kazdeho kroku analyzy....
+	####################################################################
+	
+	words = content.split(" ")
+	for a in words:
+		if FindKeyword(a):
+			if params.k:
+				count++
+			else:
+				continue
+		elif IsOperator(a):
+			if params.o:
+				count++
+			else:
+				continue
+		else:
+			if params.i:
+				count++
+	return count
 
 ###############################################
 # Funkce pro precteni a rozparsovani souboru
 ###############################################
 def ParseFile(path, params):
-	f = open(path, "rb")
+	f = open(path, "r")
+	content = f.read()
 	count = 0
-	delete_ind = 0
-	comment_ind = 0
+	makro_ind = 0
 	
-	for line in f:
-		#print(str(line))
-		#line = str(line).replace("\\r\\n", "\\n")
-		if delete_ind:
-			if params.c and params.s:
-				count += len(line)
-			if re.match(r'.*\\\\\\n\'', str(line)):
-				delete_ind = 1
+	#odmazani / vypocet pro multiline komentare
+	pos = content.find("/*")
+	while pos != -1:
+		end_pos = content.find("*/")
+		end_pos += 2
+		if params.c:
+			count += (end_pos - pos)
+		content = content[:pos] + content[end_pos:]
+		pos = content.find("/*")
+	
+	#odmazani / vypocet pro radkove komentare
+	pos = content.find("//")
+	while pos != -1:
+		end_pos = content[pos:].find("\n")
+		if params.c:
+			if end_pos == -1:
+				count += len(content[pos:])
 			else:
-				delete_ind = 0
-			continue
-		if comment_ind:
-			end_pos = str(line).find("*/")
-			if end_pos ==-1:
-				print(len(line), ":", line)
-				count += len(line)
-				continue
+				count += end_pos + 1				
+		if end_pos == -1:
+			content = conten[:pos]
+		else:
+			content = content[:pos] + content[pos+end_pos:]
+		pos = content.find("//")	
+	content = "\n" + content
+	
+	#odmazani / vypocet pro makra
+	pos = content.find("\n#")
+	while pos != -1:
+		pos += 1
+		end_pos = content[pos:].find("\n")
+		while content[pos + end_pos - 1] == "\\":
+			end_pos = content[end_pos:].find("\n")
+		if params.c and params.s:
+			if end_pos == -1:
+				count += len(content[pos:])
 			else:
-				print(len(line[:end_pos+2]), ":", line[:end_pos+2])
-				count += len(line[:end_pos +2])
-				comment_ind = 0
-				line = line[end_pos+3:]
-		if re.match(r'b\'#.*', str(line)):
-			if params.c and params.s:
-				count += len(line)
-			if re.match(r'.*\\\\\\n\'', str(line)):
-				delete_ind = 16046
-			continue
-		pos = str(line).find('//')
-		if pos != -1:
-			if params.c:
-				print(len(line[pos:]), ":", line[pos:])
-				count += len(line[pos:])
-			if pos == 0:
-				continue
-			else:
-				line = line[:pos]
-		pos = str(line).tostring().find("/*")
-		end_pos = str(line).find("*/")
-		if pos != -1:
-			if params.c:					
-				if end_pos == -1:
-					print(pos)
-					print(len(line[0:]))
-					print(len(line[pos:]), ":", line[pos:])
-					count += len(line[pos:])
-					line = line[:pos]
-					comment_ind = 1
-				else:
-					print(len(line), ":", line)
-					count += len(line[pos:end_pos+2])
-					line = line[:pos] + line[end_pos+2:]
-					
-			
-				
-		
-	print ("Pocet: ", count)
+				count += end_pos + 1				
+		if end_pos == -1:
+			content = conten[:pos]
+		else:
+			content = content[:pos] + content[pos+end_pos:]
+		pos = content.find("\n#")	
+	
+	if params.k or params.i or params.o or params.w:
+		count = FSMParsing(content, params)
+	
+	print ("Pocet:", count)
 	return count
 		
 
