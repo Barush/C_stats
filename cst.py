@@ -11,6 +11,7 @@ class parameters:
         self.o=False
         self.i=False
         self.w=False
+        self.pattern=False
         self.c=False
         self.p=False
         self.s=False
@@ -21,7 +22,7 @@ def enum(**enums):
     return type('Enum', (), enums)
 
 #vycet pro reprezentaci chybovych stavu
-errors = enum(EPAR=1, EIFILE=2, EOFILE=3, EWRONGIFILE=4, ESPEC=10)
+errors = enum(EPAR=1, EIFILE=2, EOFILE=3, EWRONGIFILE=4, ESPEC=10, EINVALID=11)
 
 ###############################################
 # Funkce pro tisk helpmsg
@@ -47,7 +48,8 @@ ePrints = {errors.EPAR: "Chybne zadane parametry.\n",
 			errors.EIFILE: "Chyba pri otevreni vstupniho souboru.\n",
 			errors.EOFILE: "Chyba pri pristupu do vystupniho souboru.\n",
 			errors.EWRONGIFILE: "Chybny format vystupniho souboru.\n",
-			errors.ESPEC: "Jina specificka chyba...\n"}
+			errors.ESPEC: "Jina specificka chyba...\n",
+			errors.EINVALID: "V souboru se vyskytla nevalidita",}
 	
 def printErrExit(eCode):
 	sys.stderr.write (ePrints[eCode])
@@ -88,10 +90,11 @@ def getParams():
 			if params.h or params.k or params.o or params.w or params.c or params.p:
 				printErrExit(errors.EPAR)
 			params.i = True
-		elif p == "-w":
+		elif re.match(r'-w=\S+', p):
 			if params.h or params.k or params.o or params.i or params.c or params.p:
 				printErrExit(errors.EPAR)
 			params.w = True
+			params.pattern = p[3:]
 		elif p == "-c":
 			if params.h or params.k or params.o or params.i or params.w or params.p:
 				printErrExit(errors.EPAR)
@@ -128,26 +131,25 @@ def FindKeyword(word):
 def FSMParsing(content, params):
 	count = 0
 	
-	#TAHLE FUNKCE BUDE VYPADAT UPLNE JINAK
-	#	- bude to matka vsech funkci konecneho automatu, do ktere se bude vracet vysledek 
-	#	  kazdeho kroku analyzy....
-	####################################################################
+	#mimo poznamky a retezce - poznamky odstraneny, zbyvaji retezce
+	pos = content.find("\"")
+	while pos != -1:
+		end_pos = content[pos + 1:].find("\"")
+		if end_pos == -1:
+			printErrExit(errors.EINVALID)
+		content = content[:pos] + content[pos + end_pos + 2:]
+		pos = content.find("\"")
 	
-	words = content.split(" ")
-	for a in words:
-		if FindKeyword(a):
-			if params.k:
-				count++
-			else:
-				continue
-		elif IsOperator(a):
-			if params.o:
-				count++
-			else:
-				continue
-		else:
-			if params.i:
-				count++
+	#char patri taky mezi retezce
+	pos = content.find("\'")
+	while pos != -1:
+		end_pos = content[pos + 1:].find("\'")
+		if end_pos == -1:
+			printErrExit(errors.EINVALID)
+		content = content[:pos] + content[pos + end_pos + 2:]
+		pos = content.find("\'")	
+	
+	print(content)
 	return count
 
 ###############################################
@@ -158,6 +160,16 @@ def ParseFile(path, params):
 	content = f.read()
 	count = 0
 	makro_ind = 0
+	
+	#hledani textovych vzoru z parametru -w
+	if params.w:
+		pos = content.find(params.pattern)
+		while pos != -1:
+			count += 1
+			content = content[pos + len(params.pattern):]
+			pos = content.find(params.pattern)
+		print("Pocet: ", count)
+		return count
 	
 	#odmazani / vypocet pro multiline komentare
 	pos = content.find("/*")
