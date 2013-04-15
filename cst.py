@@ -131,24 +131,6 @@ def FindKeyword(word):
 def FSMParsing(content, params):
 	count = 0
 	
-	#mimo poznamky a retezce - poznamky odstraneny, zbyvaji retezce
-	pos = content.find("\"")
-	while pos != -1:
-		end_pos = content[pos + 1:].find("\"")
-		if end_pos == -1:
-			printErrExit(errors.EINVALID)
-		content = content[:pos] + content[pos + end_pos + 2:]
-		pos = content.find("\"")
-	
-	#char patri taky mezi retezce
-	pos = content.find("\'")
-	while pos != -1:
-		end_pos = content[pos + 1:].find("\'")
-		if end_pos == -1:
-			printErrExit(errors.EINVALID)
-		content = content[:pos] + content[pos + end_pos + 2:]
-		pos = content.find("\'")	
-	
 	print(content)
 	return count
 
@@ -214,8 +196,25 @@ def ParseFile(path, params):
 		else:
 			content = content[:pos] + content[pos+end_pos:]
 		pos = content.find("\n#")	
+		
+	#odmazani retezcu
+	pos = content.find("\"")
+	while pos != -1:
+		end_pos = content[pos + 1:].find("\"")
+		if end_pos == -1:
+			printErrExit(errors.EINVALID)
+		content = content[:pos] + content[pos + end_pos + 2:]
+		pos = content.find("\"")
 	
-	if params.k or params.i or params.o or params.w:
+	#odmazani jednoznakovych retezcu
+	pos = content.find("\'")
+	while pos != -1:
+		end_pos = content[pos + 1:].find("\'")
+		if end_pos == -1:
+			printErrExit(errors.EINVALID)
+		content = content[:pos] + content[pos + end_pos + 2:]
+		pos = content.find("\'")	
+	if params.k or params.i or params.o:
 		count = FSMParsing(content, params)
 	
 	print ("Pocet:", count)
