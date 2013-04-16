@@ -28,6 +28,9 @@ errors = enum(EPAR=1, EIFILE=2, EOFILE=3, EWRONGIFILE=4, ESPEC=10, EINVALID=11)
 states = enum(S_IDLE=1, S_ID=2, S_PLUS=3, S_MINUS=4, S_TIMES=5, S_SLASH=6,
 S_BAND=7, S_BOR=8, S_NOT=9, S_ASSIG=10, S_LT=11, S_GT=12)
 
+#globalni promenna pro rekurzi
+result = []
+
 ###############################################
 # Funkce pro tisk helpmsg
 ###############################################
@@ -180,7 +183,6 @@ def FSMParsing(content, params):
 				if FindKeyword(word) and params.k:
 					count += 1
 				elif (not FindKeyword(word)) and params.i:
-					print(word)
 					count +=1
 				state = states.S_IDLE
 				# i se neinkrementuje - preskoci se posledni radek cyklu
@@ -365,7 +367,6 @@ def ParseFile(path, params):
 # Funkce pro praci uvnitr zadane slozky
 ###############################################
 def WorkInDir(path, params):
-	result = []
 	#if path is a file
 	if re.match(r'.*\.c', path) or re.match(r'.*\.h', path):
 		if params.p:
@@ -385,7 +386,8 @@ def WorkInDir(path, params):
 				result.append(ParseFile(os.path.join(path, f), params))
 			elif os.path.isdir(os.path.join(path,f)):
 				if not params.noSubDir:
-					WorkInDir(os.path.join(path,f), params)		
+					WorkInDir(os.path.join(path,f), params)	
+					
 	return result
 		
 ###############################################
@@ -400,11 +402,13 @@ def CountLineLen(array):
 		if i % 2:
 			if len(str(cell)) > num_max:
 				num_max = len(str(cell))
+				#print("Maximum : ", num_max)
 		else:
 			if len(cell) > char_max:
 				char_max = len(cell)
+				#	print("maximum: ", char_max)
 		i += 1
-	return num_max + char_max + 1
+	return num_max + char_max
 
 ###############################################
 # Funkce pro vypis vysledku
@@ -414,7 +418,8 @@ def WriteOutput(maxlen, result):
 	
 	for i in range(0, lines):
 		spaces = maxlen - len(result[2*i]) - len(str(result[2*i + 1]))
-		print(result[2*i], spaces*" ", result[2*i + 1])
+		print("spaces: ", spaces)
+		print(str(result[2*i]).strip(), spaces*" ", str(result[2*i + 1]).strip())
 	
 ###############################################
 # Main func
