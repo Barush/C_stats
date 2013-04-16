@@ -138,12 +138,16 @@ def FSMParsing(content, params):
 	i = 0
 	
 	while 1:
+		############# DETEKCE KONCE SOUBORU ############################
 		try:
 			c = content[i]
 		except IndexError:
 			break
+		
+		################ POCATECNI STAV KA #############################
 		if state == states.S_IDLE:
 			if c in string.ascii_letters:
+				word = c
 				state = states.S_ID
 			elif c in ['^', '~', '%']:
 				if params.o:
@@ -169,12 +173,107 @@ def FSMParsing(content, params):
 				state = states.S_LT
 			elif c == '>':
 				state = states.S_GT
+		
+		############# ANALYZUJEME IDENTIFIKATOR/KEYWORD ################
 		elif state == states.S_ID:
 			if c not in (string.ascii_letters + string.digits + '_'):
-				if params.k and ############################################# JE TREBA SI UKLADAT NACTENY RETEZEC, BEZ TOHO TO NEPUJDE. :D
+				if FindKeyword(word) and params.k:
+					count += 1
+				elif (not FindKeyword(word)) and params.i:
+					print(word)
+					count +=1
+				state = states.S_IDLE
+				# i se neinkrementuje - preskoci se posledni radek cyklu
+				continue
+			else:
+				word += c
+				
+		########################### BYLO NACTENO + #####################
+		elif state == states.S_PLUS:
+			if params.o:
+				count += 1
+			state = states.S_IDLE
+			if c not in ['+', '=']:
+				#preskoci se inkrementace pocitadla
+				continue
+				
+		########################### BYLO NACTENO - #####################
+		elif  state == states.S_MINUS:
+			if params.o:
+				count += 1
+			state = states.S_IDLE
+			if c not in ['-', '=']:
+				#preskoci se inkrementace pocitadla
+				continue
+				
+		########################### BYLA NACTENA * #####################
+		elif state == states.S_TIMES:
+			############################################################
+			#			TOHLE BUDE JESTE TROSKU SLOZITEJSI...
+			############################################################
+			if params.o:
+				count += 1
+			state = states.S_IDLE
+			if c != '=':
+				continue
+				
+		########################### BYLO NACTENO / #####################
+		elif state == states.S_SLASH:
+			if params.o:
+				count += 1
+			state = states.S_IDLE
+			if c != '=':
+				continue
+				
+		########################### BYLO NACTENO & #####################
+		elif state == states.S_BAND:
+			if params.o:
+				count += 1
+			state = states.S_IDLE
+			if c != '&':
+				continue
+				
+		########################### BYLO NACTENO | #####################
+		elif state == states.S_BOR:
+			if params.o:
+				count += 1
+			state = states.S_IDLE
+			if c != '|':
+				continue
+				
+		########################### BYL NACTEN ! #######################
+		elif state == states.S_NOT:
+			if params.o:
+				count += 1
+			state = states.S_IDLE
+			if c != '=':
+				continue
+				
+		########################### BYLO NACTENO = #####################
+		elif state == states.S_ASSIG:
+			if params.o:
+				count += 1
+			state = states.S_IDLE
+			if c != '=':
+				continue
+				
+		########################### BYLO NACTENO < #####################
+		elif state == states.S_LT:
+			if params.o:
+				count += 1
+			state = states.S_IDLE
+			if c != '=':
+				continue
+				
+		########################### BYLO NACTENO > #####################
+		elif state == states.S_GT:
+			if params.o:
+				count += 1
+			state = states.S_IDLE
+			if c != '=':
+				continue
 		i += 1
-	
-	print(content)
+
 	return count
 
 ###############################################
@@ -193,7 +292,6 @@ def ParseFile(path, params):
 			count += 1
 			content = content[pos + len(params.pattern):]
 			pos = content.find(params.pattern)
-		print("Pocet: ", count)
 		return count
 	
 	#odmazani / vypocet pro multiline komentare
@@ -259,8 +357,7 @@ def ParseFile(path, params):
 		pos = content.find("\'")	
 	if params.k or params.i or params.o:
 		count = FSMParsing(content, params)
-	
-	print ("Pocet:", count)
+
 	return count
 		
 
@@ -289,9 +386,35 @@ def WorkInDir(path, params):
 			elif os.path.isdir(os.path.join(path,f)):
 				if not params.noSubDir:
 					WorkInDir(os.path.join(path,f), params)		
-	else:
-		return
-			 
+	return result
+		
+###############################################
+# Funkce pro vypocet delky vypisovaneho radku
+###############################################
+def CountLineLen(array):
+	i = 0
+	num_max = 0
+	char_max = 0
+	
+	for cell in array:
+		if i % 2:
+			if len(str(cell)) > num_max:
+				num_max = len(str(cell))
+		else:
+			if len(cell) > char_max:
+				char_max = len(cell)
+		i += 1
+	return num_max + char_max + 1
+
+###############################################
+# Funkce pro vypis vysledku
+###############################################			 
+def WriteOutput(maxlen, result):
+	lines = (int)(len(result)/2)
+	
+	for i in range(0, lines):
+		spaces = maxlen - len(result[2*i]) - len(str(result[2*i + 1]))
+		print(result[2*i], spaces*" ", result[2*i + 1])
 	
 ###############################################
 # Main func
@@ -307,7 +430,10 @@ def main():
 		if params.noSubDir:
 			printErrExit(errors.EPAR)
 	
-	WorkInDir(params.inputf, params)
+	result = WorkInDir(params.inputf, params)
+	
+	maxlen = CountLineLen(result)
+	WriteOutput(maxlen, result)
 
 if __name__ == "__main__":
     main()
