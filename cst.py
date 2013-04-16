@@ -24,6 +24,10 @@ def enum(**enums):
 #vycet pro reprezentaci chybovych stavu
 errors = enum(EPAR=1, EIFILE=2, EOFILE=3, EWRONGIFILE=4, ESPEC=10, EINVALID=11)
 
+#vycet pro reprezentaci stavu konecneho automatu
+states = enum(S_IDLE=1, S_ID=2, S_PLUS=3, S_MINUS=4, S_TIMES=5, S_SLASH=6,
+S_BAND=7, S_BOR=8, S_NOT=9, S_ASSIG=10, S_LT=11, S_GT=12)
+
 ###############################################
 # Funkce pro tisk helpmsg
 ###############################################
@@ -130,6 +134,45 @@ def FindKeyword(word):
 ###############################################
 def FSMParsing(content, params):
 	count = 0
+	state = states.S_IDLE
+	i = 0
+	
+	while 1:
+		try:
+			c = content[i]
+		except IndexError:
+			break
+		if state == states.S_IDLE:
+			if c in string.ascii_letters:
+				state = states.S_ID
+			elif c in ['^', '~', '%']:
+				if params.o:
+					count += 1
+				state = states.S_IDLE
+			elif c == '+':
+				state = states.S_PLUS
+			elif c == '-':
+				state = states.S_MINUS
+			elif c == '*':
+				state = states.S_TIMES
+			elif c == '/':
+				state = states.S_SLASH
+			elif c == '&':
+				state = states.S_BAND
+			elif c == '|':
+				state = states.S_BOR
+			elif c == '!':
+				state = states.S_NOT
+			elif c == '=':
+				state = states.S_ASSIG
+			elif c == '<':
+				state = states.S_LT
+			elif c == '>':
+				state = states.S_GT
+		elif state == states.S_ID:
+			if c not in (string.ascii_letters + string.digits + '_'):
+				if params.k and ############################################# JE TREBA SI UKLADAT NACTENY RETEZEC, BEZ TOHO TO NEPUJDE. :D
+		i += 1
 	
 	print(content)
 	return count
