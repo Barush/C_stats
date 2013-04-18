@@ -22,7 +22,7 @@ def enum(**enums):
     return type('Enum', (), enums)
 
 #vycet pro reprezentaci chybovych stavu
-errors = enum(EPAR=1, EIFILE=2, EOFILE=3, EWRONGIFILE=4, ESPEC=10, EINVALID=11)
+errors = enum(EOK=0, EPAR=1, EIFILE=2, EOFILE=3, ESPEC=10)
 
 #vycet pro reprezentaci stavu konecneho automatu
 states = enum(S_IDLE=1, S_ID=2, S_PLUS=3, S_MINUS=4, S_TIMES=5, S_SLASH=6,
@@ -35,32 +35,30 @@ result = []
 # Funkce pro tisk helpmsg
 ###############################################
 def usage():
-	sys.stderr.write ("\nProgram C Stats v pythonu\n")
-	sys.stderr.write ("Barbora Skrivankova, xskriv01@stud.fit.vutbr.cz\n")
-	sys.stderr.write ("Pouziti: python ./cst.py (-h|--help) --input=fileordir --output=file [--nosubdir] (-k|-o|-i|-w|-c) [-p]\n\n")
-	sys.stderr.write ("\t\t-h, --help: vypise tuto napovedu a skonci program\n")
-	sys.stderr.write ("\t\t--input=fileordir: specifikace vstupniho souboru nebo adresare k analyze\n")
-	sys.stderr.write ("\t\t--output=file: specifikace vystupniho souboru\n")
-	sys.stderr.write ("\t\t--nosubdir: zakazani rekurzivniho prohledavani adresaru\n")
-	sys.stderr.write ("\t\t\t nelze kombinovat s input=file\n")
-	sys.stderr.write ("\t\t-k: probehne vypocet pro klicova slova\n")
-	sys.stderr.write ("\t\t-o: probehne vypocet pro jednoduche operatory\n")
-	sys.stderr.write ("\t\t-i: probehne vypocet pro identifikatory\n")
-	sys.stderr.write ("\t\t-w=pattern: vyhleda textovy retezec pattern a vypise pocet vyskytu\n")
-	sys.stderr.write ("\t\t-c: probehne vypocet pro znaky komentaru\n")
-	sys.stderr.write ("\t\t\tPrave jeden z -k, -o, -i, -w -c musi byt zadan\n")
-	sys.stderr.write ("\t\t-p: ve vypisech zrusi absolutni cesty k souborum\n")
+	print ("Program C Stats v pythonu\n")
+	print ("Barbora Skrivankova, xskriv01@stud.fit.vutbr.cz\n")
+	print ("Pouziti: python ./cst.py (-h|--help) --input=fileordir --output=file [--nosubdir] (-k|-o|-i|-w|-c) [-p]\n\n")
+	print ("\t\t-h, --help: vypise tuto napovedu a skonci program\n")
+	print ("\t\t--input=fileordir: specifikace vstupniho souboru nebo adresare k analyze\n")
+	print ("\t\t--output=file: specifikace vystupniho souboru\n")
+	print ("\t\t--nosubdir: zakazani rekurzivniho prohledavani adresaru\n")
+	print ("\t\t\t nelze kombinovat s input=file\n")
+	print ("\t\t-k: probehne vypocet pro klicova slova\n")
+	print ("\t\t-o: probehne vypocet pro jednoduche operatory\n")
+	print ("\t\t-i: probehne vypocet pro identifikatory\n")
+	print ("\t\t-w=pattern: vyhleda textovy retezec pattern a vypise pocet vyskytu\n")
+	print ("\t\t-c: probehne vypocet pro znaky komentaru\n")
+	print ("\t\t\tPrave jeden z -k, -o, -i, -w -c musi byt zadan\n")
+	print ("\t\t-p: ve vypisech zrusi absolutni cesty k souborum\n")
 
-ePrints = {errors.EPAR: "Chybne zadane parametry.\n",
+ePrints = {errors.EOK: "",
+			errors.EPAR: "Chybne zadane parametry.\n",
 			errors.EIFILE: "Chyba pri otevreni vstupniho souboru.\n",
 			errors.EOFILE: "Chyba pri pristupu do vystupniho souboru.\n",
-			errors.EWRONGIFILE: "Chybny format vystupniho souboru.\n",
-			errors.ESPEC: "Jina specificka chyba...\n",
-			errors.EINVALID: "V souboru se vyskytla nevalidita",}
+			errors.ESPEC: "Jina specificka chyba...\n",}
 	
 def printErrExit(eCode):
 	sys.stderr.write (ePrints[eCode])
-	usage()
 	sys.exit(eCode)
 
 ###############################################
@@ -72,6 +70,8 @@ def getParams():
 		if p in ("-h", "--help"):
 			if params.h:
 				printErrExit(errors.EPAR)
+			usage()
+			exit(0)
 			params.h = True
 		elif  re.match(r'--input=\S+', p):
 			if params.inputf or params.h:
@@ -82,9 +82,9 @@ def getParams():
 				printErrExit(errors.EPAR)
 			params.noSubDir = True
 		elif re.match(r'--output=\S+', p):
-			if params.output or params.h:
+			if params.outputf or params.h:
 				printErrExit(errors.EPAR)
-			params.outputf = p[10:]
+			params.outputf = p[9:]
 		elif p == "-k":
 			if params.h or params.o or params.i or params.w or params.c or params.p:
 				printErrExit(errors.EPAR)
@@ -124,8 +124,8 @@ def getParams():
 def FindKeyword(word):
 	keywords = ("auto", "break", "case", "char", "const", "continue", "default",
 	"do", "double", "else", "enum", "extern", "float", "for", "goto", "if", "int", 
-	"long", "register", "return", "short", "signed", "sizeof", "static", "struct",
-	"switch", "typedef", "union", "unsigned", "void", "volatile", "while")
+	"inline", "long", "register", "return", "short", "signed", "sizeof", "static", 
+	"struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while")
 	
 	if word in keywords:
 		return 1
@@ -204,21 +204,25 @@ def FSMParsing(content, params):
 			if params.o:
 				count += 1
 			state = states.S_IDLE
-			if c not in ['-', '=']:
+			if c not in ['-', '=', '>']:
 				#preskoci se inkrementace pocitadla
 				continue
 				
 		########################### BYLA NACTENA * #####################
 		elif state == states.S_TIMES:
-			############################################################
-			#			TOHLE BUDE JESTE TROSKU SLOZITEJSI...
-			############################################################
-			if params.o:
-				count += 1
-			state = states.S_IDLE
-			if c != '=':
-				continue
-				
+			#pred hvezdickou je keyword -> jedna se o deklaraci
+			####################################################
+			# PREMYSLEJ DAL...
+			####################################################
+			#ZMENIT VYCET PREDCHAZEJICICH SYMBOLU
+			if not FindKeyword(word):
+				if params.o:
+					count += 1
+					
+			
+				if c != '=':
+					continue
+			state = states.S_IDLE	
 		########################### BYLO NACTENO / #####################
 		elif state == states.S_SLASH:
 			if params.o:
@@ -281,8 +285,12 @@ def FSMParsing(content, params):
 ###############################################
 # Funkce pro precteni a rozparsovani souboru
 ###############################################
-def ParseFile(path, params):
-	f = open(path, "r")
+def ParseFile(path, params):	
+	try:
+		f = open(path, "r")
+	except IOError:
+		printErrExit(errors.EIFILE)
+		
 	content = f.read()
 	count = 0
 	makro_ind = 0
@@ -294,6 +302,7 @@ def ParseFile(path, params):
 			count += 1
 			content = content[pos + len(params.pattern):]
 			pos = content.find(params.pattern)
+		f.close()
 		return count
 	
 	#odmazani / vypocet pro multiline komentare
@@ -316,7 +325,7 @@ def ParseFile(path, params):
 			else:
 				count += end_pos + 1				
 		if end_pos == -1:
-			content = conten[:pos]
+			content = content[:pos]
 		else:
 			content = content[:pos] + content[pos+end_pos:]
 		pos = content.find("//")	
@@ -328,14 +337,14 @@ def ParseFile(path, params):
 		pos += 1
 		end_pos = content[pos:].find("\n")
 		while content[pos + end_pos - 1] == "\\":
-			end_pos = content[end_pos:].find("\n")
+			end_pos += content[end_pos + 1:].find("\\n")
 		if params.c and params.s:
 			if end_pos == -1:
 				count += len(content[pos:])
 			else:
-				count += end_pos + 1				
+				count += end_pos - pos + 1	
 		if end_pos == -1:
-			content = conten[:pos]
+			content = content[:pos]
 		else:
 			content = content[:pos] + content[pos+end_pos:]
 		pos = content.find("\n#")	
@@ -345,7 +354,7 @@ def ParseFile(path, params):
 	while pos != -1:
 		end_pos = content[pos + 1:].find("\"")
 		if end_pos == -1:
-			printErrExit(errors.EINVALID)
+			break
 		content = content[:pos] + content[pos + end_pos + 2:]
 		pos = content.find("\"")
 	
@@ -354,12 +363,13 @@ def ParseFile(path, params):
 	while pos != -1:
 		end_pos = content[pos + 1:].find("\'")
 		if end_pos == -1:
-			printErrExit(errors.EINVALID)
+			break
 		content = content[:pos] + content[pos + end_pos + 2:]
 		pos = content.find("\'")	
 	if params.k or params.i or params.o:
 		count = FSMParsing(content, params)
 
+	f.close()
 	return count
 		
 
@@ -368,6 +378,9 @@ def ParseFile(path, params):
 ###############################################
 def WorkInDir(path, params):
 	#if path is a file
+	if not (os.path.isdir(path) or os.path.isfile(path)):
+		printErrExit(errors.EIFILE)
+	
 	if re.match(r'.*\.c', path) or re.match(r'.*\.h', path):
 		if params.p:
 			result.append(os.path.basename(path))
@@ -375,14 +388,12 @@ def WorkInDir(path, params):
 			result.append(path)
 		result.append(ParseFile(path, params))
 	elif os.path.isdir(path):
-		print("Got a dir called", path)
 		for f in os.listdir(path):
 			if re.match(r'.*\.c', f) or re.match(r'.*\.h', f):
 				if params.p:
 					result.append(f)
 				else:
-					result.append(os.path.join(path,f))
-				print("Got a file called", f)				
+					result.append(os.path.join(path,f))	
 				result.append(ParseFile(os.path.join(path, f), params))
 			elif os.path.isdir(os.path.join(path,f)):
 				if not params.noSubDir:
@@ -408,18 +419,60 @@ def CountLineLen(array):
 				char_max = len(cell)
 				#	print("maximum: ", char_max)
 		i += 1
-	return num_max + char_max
+	
+	if num_max < len(str(Summary(result))):
+		num_max = len(str(Summary(result)))
+
+	return num_max + char_max + 1
+
+###############################################
+# Funkce pro vypocet souctu vsech znaku
+###############################################	
+def Summary(result):
+	summary = 0
+	count = (int)(len(result)/2)
+	
+	for i in range (0, count):
+		summary += result[2*i + 1]
+	return summary
+
+###############################################
+# Funkce pro serazeni vysledku na vystupu
+###############################################	
+def Sort(result):
+	sortedRes = result
+	return sortedRes
+
 
 ###############################################
 # Funkce pro vypis vysledku
 ###############################################			 
-def WriteOutput(maxlen, result):
+def WriteOutput(maxlen, result, params):
 	lines = (int)(len(result)/2)
+	sortedRes = []
+	
+	summary = Summary(result)
+	if maxlen < (len(str(summary)) + len("CELKEM:") + 1):
+		maxlen = len(str(summary)) + len("CELKEM:") + 1
+	
+	if params.outputf:
+		try:
+			sys.stdout = open(params.outputf, "w")
+		except IOError:
+			printErrExit(errors.EOFILE)
 	
 	for i in range(0, lines):
 		spaces = maxlen - len(result[2*i]) - len(str(result[2*i + 1]))
-		print("spaces: ", spaces)
-		print(str(result[2*i]).strip(), spaces*" ", str(result[2*i + 1]).strip())
+		line = str(result[2*i]).strip()+spaces*" "+str(result[2*i + 1]).strip()
+		sortedRes.append(line)
+	
+	sortedRes.sort()
+	spaces = maxlen - len("CELKEM:") - len(str(summary))
+	summ = "CELKEM:" +spaces*" "+ str(summary)
+	sortedRes.append(summ)
+	
+	for i in sortedRes:
+		print(i)
 	
 ###############################################
 # Main func
@@ -431,14 +484,16 @@ def main():
 		printErrExit(errors.EPAR)
 	if params.s and not (params.o or params.c):
 		printErrExit(errors.EPAR)
+	if not params.inputf:
+		params.inputf="./"
 	if re.match(r'.*\.c', params.inputf) or re.match(r'.*\.h', params.inputf):
 		if params.noSubDir:
 			printErrExit(errors.EPAR)
 	
 	result = WorkInDir(params.inputf, params)
-	
+
 	maxlen = CountLineLen(result)
-	WriteOutput(maxlen, result)
+	WriteOutput(maxlen, result, params)
 
 if __name__ == "__main__":
     main()
