@@ -68,10 +68,9 @@ def getParams():
 	params=parameters()
 	for p in sys.argv[1:]:
 		if p in ("-h", "--help"):
-			if params.h:
+			if params.h or params.inputf or params.outputf or params.noSubDir or params.k or params.o or params.i or params.w or params.pattern or params.c or params.p or params.s:
 				printErrExit(errors.EPAR)
 			usage()
-			exit(0)
 			params.h = True
 		elif  re.match(r'--input=\S+', p):
 			if params.inputf or params.h:
@@ -192,6 +191,8 @@ def FSMParsing(content, params):
 		############# ANALYZUJEME IDENTIFIKATOR/KEYWORD ################
 		elif state == states.S_ID:
 			if c not in (string.ascii_letters + string.digits + '_'):
+				if (c == '(') and params.o and params.s:
+					count += 1
 				if FindKeyword(word) and params.k:
 					count += 1
 				elif (not FindKeyword(word)) and params.i:
@@ -223,10 +224,6 @@ def FSMParsing(content, params):
 		########################### BYLA NACTENA * #####################
 		elif state == states.S_TIMES:
 			#pred hvezdickou je keyword -> jedna se o deklaraci
-			####################################################
-			# PREMYSLEJ DAL...
-			####################################################
-			#ZMENIT VYCET PREDCHAZEJICICH SYMBOLU
 			state = states.S_IDLE	
 			if not FindType(word):
 				if params.o:
@@ -324,7 +321,7 @@ def ParseFile(path, params):
 		end_pos += 2
 		if params.c:
 			count += (end_pos - pos)
-		content = content[:pos] + content[end_pos:]
+		content = content[:pos] + content[end_pos + 2:]
 		pos = content.find("/*")
 	
 	#odmazani / vypocet pro radkove komentare
@@ -492,6 +489,8 @@ def WriteOutput(maxlen, result, params):
 def main():
 	params = parameters()
 	params = getParams()
+	if params.h:
+		exit(0)
 	if not (params.k or params.o or params.i or params.w or params.c):
 		printErrExit(errors.EPAR)
 	if params.s and not (params.o or params.c):
