@@ -150,6 +150,7 @@ def FSMParsing(content, params):
 	count = 0
 	state = states.S_IDLE
 	i = 0
+	word = ""
 	
 	while 1:
 		############# DETEKCE KONCE SOUBORU ############################
@@ -315,13 +316,13 @@ def ParseFile(path, params):
 		return count
 	
 	#odmazani / vypocet pro multiline komentare
-	pos = content.find("/*")
+	pos = content.find("/*")		
 	while pos != -1:
 		end_pos = content.find("*/")
 		end_pos += 2
 		if params.c:
 			count += (end_pos - pos)
-		content = content[:pos] + content[end_pos + 2:]
+		content = content[:pos] + content[end_pos:]
 		pos = content.find("/*")
 	
 	#odmazani / vypocet pro radkove komentare
@@ -338,15 +339,21 @@ def ParseFile(path, params):
 		else:
 			content = content[:pos] + content[pos+end_pos:]
 		pos = content.find("//")	
-	content = "\n" + content
+	
 	
 	#odmazani / vypocet pro makra
+	content = "\n" + content
 	pos = content.find("\n#")
 	while pos != -1:
 		pos += 1
-		end_pos = content[pos:].find("\n")
-		while content[pos + end_pos - 1] == "\\":
-			end_pos += content[end_pos + 1:].find("\\n")
+		end_pos = content[pos:].find("\n")							
+		while 1:
+			newpos = content[pos + end_pos + 1:].find("\n")
+			if (newpos != -1) and (content[pos + newpos + 1] == "\\"):
+				end_pos += newpos
+			else:
+				end_pos += 1
+				break				
 		if params.c and params.s:
 			if end_pos == -1:
 				count += len(content[pos:])
@@ -355,9 +362,12 @@ def ParseFile(path, params):
 		if end_pos == -1:
 			content = content[:pos]
 		else:
-			content = content[:pos] + content[pos+end_pos:]
+			content = content[:pos - 1] + content[pos + end_pos:]
+		content = "\n" + content
 		pos = content.find("\n#")	
-		
+	print(content)
+	
+	
 	#odmazani retezcu
 	pos = content.find("\"")
 	while pos != -1:
