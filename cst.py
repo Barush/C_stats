@@ -345,28 +345,24 @@ def ParseFile(path, params):
 	content = "\n" + content
 	pos = content.find("\n#")
 	while pos != -1:
-		pos += 1
-		end_pos = content[pos:].find("\n")							
-		while 1:
-			newpos = content[pos + end_pos + 1:].find("\n")
-			if (newpos != -1) and (content[pos + newpos + 1] == "\\"):
-				end_pos += newpos
+		#posun na zacatek makra - na znak #
+		pos += 1 
+		#najdu si prvni endline
+		end_pos = pos + content[pos:].find("\n")
+		next_pos = 0
+		#dokud je pred endlinem lomitko, hledam dalsi endline
+		while content[end_pos - 1] == "\\":
+			end_pos += 1
+			next_endl = content[end_pos:].find("\n")
+			if next_endl == -1:
+				break
 			else:
-				end_pos += 1
-				break				
-		if params.c and params.s:
-			if end_pos == -1:
-				count += len(content[pos:])
-			else:
-				count += end_pos - pos + 1	
-		if end_pos == -1:
-			content = content[:pos]
+				end_pos += next_endl			
+		if end_pos != -1:
+			content = content[:pos] + content[end_pos + 1:]
 		else:
-			content = content[:pos - 1] + content[pos + end_pos:]
-		content = "\n" + content
-		pos = content.find("\n#")	
-	print(content)
-	
+			content = content[:pos]
+		pos = content.find("\n#")
 	
 	#odmazani retezcu
 	pos = content.find("\"")
