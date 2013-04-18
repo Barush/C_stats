@@ -133,6 +133,18 @@ def FindKeyword(word):
 		return 0
 
 ###############################################
+# Funkce porovnavajici analyzovany retezec s klicovymi slovy pro deklaraci typu
+###############################################
+def FindType(word):
+	keywords = ("char", "double", "float", "int", "long", "short", "signed",
+	"struct", "union", "unsigned", "void")
+	
+	if word in keywords:
+		return 1
+	else:
+		return 0
+
+###############################################
 # Funkce pro precteni a rozparsovani souboru
 ###############################################
 def FSMParsing(content, params):
@@ -215,14 +227,14 @@ def FSMParsing(content, params):
 			# PREMYSLEJ DAL...
 			####################################################
 			#ZMENIT VYCET PREDCHAZEJICICH SYMBOLU
-			if not FindKeyword(word):
+			state = states.S_IDLE	
+			if not FindType(word):
 				if params.o:
 					count += 1
 					
 			
 				if c != '=':
 					continue
-			state = states.S_IDLE	
 		########################### BYLO NACTENO / #####################
 		elif state == states.S_SLASH:
 			if params.o:
