@@ -1,7 +1,20 @@
+
+
+#CST:xskriv01
+########################################################################
+#	CST.py
+#	autor: Barbora Skrivankova, xskriv01@stud.fit.vutbr.cz
+#	datum: 18.4.2012
+#	popis: projekt do IPP
+#		pocita statistiky nad C soubory
+########################################################################
+
+#potrebne systemove knihovny
 import getopt, sys, re, os, string
 
 #trida zastupujici strukturu s parametry
 class parameters:
+	#konstruktor 
     def __init__(self):
         self.inputf=False
         self.outputf=False
@@ -31,9 +44,10 @@ S_BAND=7, S_BOR=8, S_NOT=9, S_ASSIG=10, S_LT=11, S_GT=12)
 #globalni promenna pro rekurzi
 result = []
 
-###############################################
-# Funkce pro tisk helpmsg
-###############################################
+########################################################################
+# Funkce pro tisk helpmsg na stdout
+# vola se pri zadani parametru -h / --help
+########################################################################
 def usage():
 	print ("Program C Stats v pythonu\n")
 	print ("Barbora Skrivankova, xskriv01@stud.fit.vutbr.cz\n")
@@ -51,23 +65,36 @@ def usage():
 	print ("\t\t\tPrave jeden z -k, -o, -i, -w -c musi byt zadan\n")
 	print ("\t\t-p: ve vypisech zrusi absolutni cesty k souborum\n")
 
+
+# Pole s chybovymi vypisy pro jednotlive chyby
 ePrints = {errors.EOK: "",
 			errors.EPAR: "Chybne zadane parametry.\n",
 			errors.EIFILE: "Chyba pri otevreni vstupniho souboru.\n",
 			errors.EOFILE: "Chyba pri pristupu do vystupniho souboru.\n",
 			errors.ESPEC: "Jina specificka chyba...\n",}
-	
+
+########################################################################
+# Funkce printErrExit
+# Funkce, ktera vytiskne na stderr chybove hlaseni a potom skript
+# ukonci s pozadovanym error kodem, ktery ji je predavan jako parametr 
+# vyctoveho typu.
+########################################################################
 def printErrExit(eCode):
 	sys.stderr.write (ePrints[eCode])
 	sys.exit(eCode)
 
-###############################################
-# GetParamsFunction
-###############################################
+########################################################################
+# Funkce getParams
+# Funkce, ktera vytvori strukturu params a naplni ji parametry
+# predanymi na prikazove radce. Tuto strukturu po provedeni
+# zakladnich kontrol vrati.
+########################################################################
 def getParams():
 	params=parameters()
+	#prochazime vektorem argumentu prikazove radky
 	for p in sys.argv[1:]:
 		if p in ("-h", "--help"):
+			#help se nesmi spoustet s jinymi parametry
 			if params.h or params.inputf or params.outputf or params.noSubDir or params.k or params.o or params.i or params.w or params.pattern or params.c or params.p or params.s:
 				printErrExit(errors.EPAR)
 			usage()
@@ -85,24 +112,24 @@ def getParams():
 				printErrExit(errors.EPAR)
 			params.outputf = p[9:]
 		elif p == "-k":
-			if params.h or params.o or params.i or params.w or params.c or params.p:
+			if params.h or params.o or params.i or params.w or params.c:
 				printErrExit(errors.EPAR)
 			params.k = True
 		elif p == "-o":
-			if params.h or params.k or params.i or params.w or params.c or params.p:
+			if params.h or params.k or params.i or params.w or params.c:
 				printErrExit(errors.EPAR)
 			params.o = True
 		elif p == "-i":
-			if params.h or params.k or params.o or params.w or params.c or params.p:
+			if params.h or params.k or params.o or params.w or params.c:
 				printErrExit(errors.EPAR)
 			params.i = True
 		elif re.match(r'-w=\S+', p):
-			if params.h or params.k or params.o or params.i or params.c or params.p:
+			if params.h or params.k or params.o or params.i or params.c:
 				printErrExit(errors.EPAR)
 			params.w = True
 			params.pattern = p[3:]
 		elif p == "-c":
-			if params.h or params.k or params.o or params.i or params.w or params.p:
+			if params.h or params.k or params.o or params.i or params.w:
 				printErrExit(errors.EPAR)
 			params.c = True
 		elif p == "-p":
@@ -117,9 +144,15 @@ def getParams():
 			printErrExit(errors.EPAR)
 	return params
 	
-###############################################
+########################################################################
+# Funkce FindKeyword
 # Funkce porovnavajici analyzovany retezec s klicovymi slovy jazyka C
-###############################################
+#
+# Na vstupu dostane retezec.
+#
+# Na vystupu da 1/0 reprezentujici hodnoty ano,
+# retezec je klicovym slovem / ne, neni klicovym slovem.
+########################################################################
 def FindKeyword(word):
 	keywords = ("auto", "break", "case", "char", "const", "continue", "default",
 	"do", "double", "else", "enum", "extern", "float", "for", "goto", "if", "int", 
@@ -131,9 +164,15 @@ def FindKeyword(word):
 	else:
 		return 0
 
-###############################################
-# Funkce porovnavajici analyzovany retezec s klicovymi slovy pro deklaraci typu
-###############################################
+########################################################################
+# Funkce FindType
+# Funkce porovnavajici analyzovany retezec s retezci datovych typu.
+#
+# Na vstupu dostane retezec.
+#
+# Na vystupu da 1/0 reprezentujici hodnoty ano,
+# retezec je typem / ne, neni typem.
+########################################################################
 def FindType(word):
 	keywords = ("char", "double", "float", "int", "long", "short", "signed",
 	"struct", "union", "unsigned", "void")
@@ -143,14 +182,22 @@ def FindType(word):
 	else:
 		return 0
 
-###############################################
-# Funkce pro precteni a rozparsovani souboru
-###############################################
+########################################################################
+# Funkce FSMParsing
+# Konecny automat pro precteni retezce s obsahem souboru a jeho zpracovani 
+# dle parametru ze struktury params.
+#
+# Na vstupu dostane retezec s obsahem souboru po orezani vsech komentaru,
+# retezcu a maker a strukturu params.
+#
+# Na vystup preda cislo odpovidajici pozadovane sume (dle params).
+########################################################################
 def FSMParsing(content, params):
 	count = 0
 	state = states.S_IDLE
 	i = 0
 	word = ""
+	last = ""
 	
 	while 1:
 		############# DETEKCE KONCE SOUBORU ############################
@@ -162,9 +209,10 @@ def FSMParsing(content, params):
 		################ POCATECNI STAV KA #############################
 		if state == states.S_IDLE:
 			if c in string.ascii_letters:
+				last = word
 				word = c
 				state = states.S_ID
-			elif c in ['^', '~', '%']:
+			elif c in ['^', '~', '%', '.']:
 				if params.o:
 					count += 1
 				state = states.S_IDLE
@@ -192,7 +240,7 @@ def FSMParsing(content, params):
 		############# ANALYZUJEME IDENTIFIKATOR/KEYWORD ################
 		elif state == states.S_ID:
 			if c not in (string.ascii_letters + string.digits + '_'):
-				if (c == '(') and params.o and params.s:
+				if (not FindType(last)) and (c == '(') and params.o and params.s:
 					count += 1
 				if FindKeyword(word) and params.k:
 					count += 1
@@ -292,15 +340,24 @@ def FSMParsing(content, params):
 
 	return count
 
-###############################################
+########################################################################
+# Funkce ParseFile
 # Funkce pro precteni a rozparsovani souboru
-###############################################
+# 
+# Na vstupu dostane cestu k souboru a pozadovane parametry.
+# Soubor otevre, vystrihne z neho nepotrebna data a dle struktury parametru
+# budto sam provede vypocet a nebo zavola fukci FSMParsing pro pokrocilejsi
+# parsovani souboru.
+#
+# Na vystup preda cislo urcujici pozadovany pocet.
+########################################################################
 def ParseFile(path, params):	
 	try:
 		f = open(path, "r")
 	except IOError:
 		printErrExit(errors.EIFILE)
 		
+	#precteni celeho souboru
 	content = f.read()
 	count = 0
 	makro_ind = 0
@@ -362,6 +419,8 @@ def ParseFile(path, params):
 			content = content[:pos] + content[end_pos + 1:]
 		else:
 			content = content[:pos]
+		if params.c and params.s:
+			count += end_pos - pos
 		pos = content.find("\n#")
 	
 	#odmazani retezcu
@@ -388,9 +447,18 @@ def ParseFile(path, params):
 	return count
 		
 
-###############################################
+########################################################################
+# Funkce WorkInDie
 # Funkce pro praci uvnitr zadane slozky
-###############################################
+# 
+# Na vstupu dostane cestu k souboru nebo slozce obsahujici soubor(y) k 
+# pozadovane analyze a parametry prikazove radky params, dle kterych
+# se analyza provadi.
+#
+# Na vystup preda heterogenni pole, jehoz obsahem je vzdy na sudem indexu
+# nazev nebo cesta k souboru (dle params) a na nasledujicim lichem
+# statistika pocitanych prvku v souboru.
+########################################################################
 def WorkInDir(path, params):
 	#if path is a file
 	if not (os.path.isdir(path) or os.path.isfile(path)):
@@ -416,9 +484,15 @@ def WorkInDir(path, params):
 					
 	return result
 		
-###############################################
+########################################################################
+# Funkce CountLineLen
 # Funkce pro vypocet delky vypisovaneho radku
-###############################################
+#
+# Na vstupu dostane pole vypocitanych statistik.
+#
+# Na vystup preda cislo, ktere znazornuje na kolika sloupcich obrazovky 
+# bude mozne formatovane vypsat hodnoty z daneho pole.
+########################################################################
 def CountLineLen(array):
 	i = 0
 	num_max = 0
@@ -440,9 +514,14 @@ def CountLineLen(array):
 
 	return num_max + char_max + 1
 
-###############################################
-# Funkce pro vypocet souctu vsech znaku
-###############################################	
+########################################################################
+# Funkce Summary
+# Funkce pro vypocet souctu vsech hodnot jednotlivych souboru
+#
+# Na vstupu dostane pole vypocitanych statistik.
+#
+# Na vystupu preda soucet vsech hodnot.
+########################################################################
 def Summary(result):
 	summary = 0
 	count = (int)(len(result)/2)
@@ -451,17 +530,16 @@ def Summary(result):
 		summary += result[2*i + 1]
 	return summary
 
-###############################################
-# Funkce pro serazeni vysledku na vystupu
-###############################################	
-def Sort(result):
-	sortedRes = result
-	return sortedRes
-
-
-###############################################
+########################################################################
+# Funkce WriteOutput
 # Funkce pro vypis vysledku
-###############################################			 
+#
+# Na vstupu dostane maximalni delku radku, pole vysledku a parametry 
+# skriptu.
+#
+# Na standardni chybovy vystup vytiskne v predem definovanem formatu 
+# pozadovana data.
+########################################################################
 def WriteOutput(maxlen, result, params):
 	lines = (int)(len(result)/2)
 	sortedRes = []
@@ -489,14 +567,18 @@ def WriteOutput(maxlen, result, params):
 	for i in sortedRes:
 		print(i)
 	
-###############################################
+########################################################################
 # Main func
-###############################################
+########################################################################
 def main():
+	#nacteni parametru
 	params = parameters()
 	params = getParams()
+	
 	if params.h:
 		exit(0)
+		
+	#kontroly kolizi parametru
 	if not (params.k or params.o or params.i or params.w or params.c):
 		printErrExit(errors.EPAR)
 	if params.s and not (params.o or params.c):
@@ -507,8 +589,10 @@ def main():
 		if params.noSubDir:
 			printErrExit(errors.EPAR)
 	
+	#vlastni prace skriptu
 	result = WorkInDir(params.inputf, params)
 
+	#vypis formatovaneho vystupu
 	maxlen = CountLineLen(result)
 	WriteOutput(maxlen, result, params)
 
